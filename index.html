@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Cargas</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="toast-container"></div>
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <p class="loading-message">Espere por favor...</p>
+            <div class="loading-bar"></div>
+        </div>
+    </div>
+
+    <div id="login-container" class="login-container">
+        <div class="login-header">
+            <i class="fas fa-truck-moving login-icon"></i>
+            <h1>Control de Cargas</h1>
+        </div>
+
+        <form id="login-form" class="login-form">
+            <div class="input-field">
+                <input type="email" id="email" placeholder=" " required>
+                <label for="email">Correo Electrónico</label>
+            </div>
+            <div class="input-field">
+                <input type="password" id="password" placeholder=" " required>
+                <label for="password">Contraseña</label>
+            </div>
+            <p id="login-error" class="error-message"></p>
+            <button type="button" id="loginBtn" class="btn btn-primary">Acceder</button>
+            <p id="login-loading-text" class="login-loading-text">Accede a tu cuenta de Control de Cargas</p>
+            <div class="login-footer">
+                <p>¿No tienes una cuenta? <a href="#" id="showRegisterFormBtn">Regístrate aquí</a></p>
+            </div>
+        </form>
+
+        <form id="register-form" class="login-form" style="display: none;">
+            <h2>Registrar Nuevo Usuario</h2>
+            <div class="input-field">
+                <input type="email" id="new-email" placeholder=" " required>
+                <label for="new-email">Nuevo Correo</label>
+            </div>
+            <div class="input-field">
+                <input type="password" id="new-password" placeholder=" " required>
+                <label for="new-password">Nueva Contraseña</label>
+            </div>
+            <p id="register-error" class="error-message"></p>
+            <button type="button" id="registerUserBtn" class="btn btn-primary">Registrar</button>
+            <div class="login-footer">
+                <p>¿Ya tienes cuenta? <a href="#" id="showLoginFormBtn">Inicia Sesión</a></p>
+            </div>
+        </form>
+    </div>
+
+    <div id="app-container" class="app-container" style="display: none;">
+        <nav class="navbar">
+            <div class="navbar-brand">
+                <i class="fas fa-truck-moving"></i>
+                <h1>Control de Cargas</h1>
+            </div>
+            <div class="navbar-controls">
+                <div class="search-container">
+                    <button type="button" class="search-button" id="searchButton" aria-label="Buscar"><i class="fas fa-search"></i></button>
+                    <input type="text" id="searchInput" placeholder="Buscar placa..." list="plateSuggestions">
+                    <datalist id="plateSuggestions"></datalist>
+                </div>
+                <button class="btn btn-icon" id="darkModeBtn" aria-label="Toggle dark mode"><i class="fas fa-sun"></i> ☀️ Modo Oscuro</button>
+                <button class="btn btn-icon" id="chartsBtn" aria-label="Ver gráficas"><i class="fas fa-chart-bar"></i> Gráficas</button>
+                <button class="btn btn-icon" id="notificationsBtn" aria-label="Notificaciones">
+                    <i class="fas fa-bell"></i>
+                    <span id="notificationCount" class="notification-count">0</span>
+                </button>
+                <button class="btn btn-icon" id="settingsBtn" aria-label="Ajustes"><i class="fas fa-cog"></i> Ajustes</button>
+                <button class="btn btn-icon btn-logout" id="logoutBtn" aria-label="Cerrar sesión"><i class="fas fa-sign-out-alt"></i> Salir</button>
+            </div>
+        </nav>
+
+        <main class="main-content">
+            <div class="input-section card">
+                <h2>Registrar Nueva Carga</h2>
+                <div class="input-field">
+                    <input type="date" id="date" placeholder=" " required>
+                    <label for="date">Fecha</label>
+                </div>
+                <div class="input-field">
+                    <input type="text" id="plate" placeholder=" " list="plateSuggestions" required>
+                    <label for="plate">Placa de la Unidad</label>
+                    <button type="button" class="btn btn-icon view-plate-history-btn" id="viewPlateHistoryBtn"><i class="fas fa-history"></i> Historial</button>
+                </div>
+                <div id="cargoCheckboxes" class="cargo-checkboxes">
+                    </div>
+                <button class="btn btn-primary" id="addRecordBtn"><i class="fas fa-plus-circle"></i> Agregar Carga</button>
+            </div>
+
+            <div class="tab-navigation card">
+                <button class="tab-button active" data-tab="recordsTab"><i class="fas fa-clipboard-list"></i> Cargas</button>
+                <button class="tab-button" data-tab="badPlatesTab"><i class="fas fa-exclamation-triangle"></i> Placas Malas</button>
+                <button class="tab-button" data-tab="statisticsTab"><i class="fas fa-chart-pie"></i> Estadísticas</button>
+            </div>
+
+            <div id="recordsTab" class="tab-content active">
+                <div class="filters-section card">
+                    <h3>Filtros de Cargas</h3>
+                    <div class="filter-group">
+                        <label for="cargoFilter">Filtrar por Carga:</label>
+                        <select id="cargoFilter">
+                            <option value="all">Todas las Cargas</option>
+                            </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Filtrar por Fechas:</label>
+                        <div class="input-field date-filter">
+                            <input type="date" id="filterStartDate" placeholder=" ">
+                            <label for="filterStartDate">Desde</label>
+                        </div>
+                        <div class="input-field date-filter">
+                            <input type="date" id="filterEndDate" placeholder=" ">
+                            <label for="filterEndDate">Hasta</label>
+                        </div>
+                        <button class="btn btn-primary" id="applyDateFilterBtn"><i class="fas fa-filter"></i> Aplicar</button>
+                        <button class="btn btn-secondary" id="resetDateFilterBtn"><i class="fas fa-undo"></i> Resetear</button>
+                    </div>
+                    <div class="export-buttons">
+                        <button class="btn btn-secondary" id="exportXLSXBtn"><i class="fas fa-file-excel"></i> Exportar a Excel</button>
+                        <button class="btn btn-info" id="exportPDFBtn"><i class="fas fa-file-pdf"></i> Exportar a PDF</button>
+                    </div>
+                </div>
+
+                <div class="records-list-container">
+                    <div class="list-section card">
+                        <h2>Cargas Pendientes <i class="fas fa-hourglass-half"></i></h2>
+                        <div id="pendingList" class="records-list">
+                            </div>
+                    </div>
+
+                    <div class="list-section card">
+                        <h2>Cargas Enviadas <i class="fas fa-truck"></i></h2>
+                        <div id="sentList" class="records-list">
+                            </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="badPlatesTab" class="tab-content">
+                <div class="bad-plate-input-section card">
+                    <h2>Registrar Placa en Mal Estado</h2>
+                    <form id="badPlateForm">
+                        <div class="input-field">
+                            <input type="text" id="badPlateNumber" placeholder=" " required list="plateSuggestions">
+                            <label for="badPlateNumber">Número de Placa</label>
+                        </div>
+                        <div class="input-field">
+                            <textarea id="badPlateReason" placeholder=" " rows="3" required></textarea>
+                            <label for="badPlateReason">Motivo / Descripción</label>
+                        </div>
+                        <button class="btn btn-primary" id="addBadPlateBtn"><i class="fas fa-exclamation-circle"></i> Registrar Problema</button>
+                    </form>
+                </div>
+
+                <div class="bad-plates-list-container">
+                    <div class="list-section card">
+                        <h2>Placas Pendientes de Revisión <i class="fas fa-sync-alt"></i></h2>
+                        <div id="badPlatesList" class="records-list">
+                            </div>
+                    </div>
+                    <div class="list-section card">
+                        <h2>Placas Resueltas <i class="fas fa-check-double"></i></h2>
+                        <div id="resolvedBadPlatesList" class="records-list">
+                            </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="statisticsTab" class="tab-content">
+                <div class="statistics-section card">
+                    <h2>Resumen de Cargas <i class="fas fa-info-circle"></i></h2>
+                    <div class="filters-section" style="margin-bottom: 20px;">
+                        <h3>Filtros de Estadísticas</h3>
+                        <div class="filter-group">
+                            <label for="statCargoFilter">Filtrar por Carga:</label>
+                            <select id="statCargoFilter">
+                                <option value="all">Todas las Cargas</option>
+                                </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>Filtrar por Fechas:</label>
+                            <div class="input-field date-filter">
+                                <input type="date" id="statFilterStartDate" placeholder=" ">
+                                <label for="statFilterStartDate">Desde</label>
+                            </div>
+                            <div class="input-field date-filter">
+                                <input type="date" id="statFilterEndDate" placeholder=" ">
+                                <label for="statFilterEndDate">Hasta</label>
+                            </div>
+                            <button class="btn btn-primary" id="applyStatFilterBtn"><i class="fas fa-filter"></i> Aplicar</button>
+                            <button class="btn btn-secondary" id="resetStatFilterBtn"><i class="fas fa-undo"></i> Resetear</button>
+                        </div>
+                    </div>
+
+                    <div class="stat-grid">
+                        <div class="stat-item">
+                            <span>Cargas Totales:</span>
+                            <span id="totalLoadsStat">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>Cargas Pendientes:</span>
+                            <span id="pendingLoadsStat">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>Cargas Enviadas:</span>
+                            <span id="sentLoadsStat">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>Reportes Placas Pendientes:</span>
+                            <span id="pendingBadPlatesStat">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>Reportes Placas Resueltos:</span>
+                            <span id="resolvedBadPlatesStat">0</span>
+                        </div>
+                    </div>
+
+                    <h3>Distribución de Cargas por Tipo</h3>
+                    <div id="cargoDistributionStats" class="stat-grid cargo-distribution-grid">
+                        </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="editRecordModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2><i class="fas fa-edit"></i> Editar Registro de Carga</h2>
+            <input type="hidden" id="editRecordId">
+            <div class="input-field">
+                <input type="date" id="editDate" placeholder=" " required>
+                <label for="editDate">Fecha</label>
+            </div>
+            <div class="input-field">
+                <input type="text" id="editPlate" placeholder=" " required>
+                <label for="editPlate">Placa</label>
+            </div>
+            <div id="editCargoCheckboxes" class="cargo-checkboxes">
+                </div>
+            <div class="modal-buttons">
+                <button class="btn btn-primary" id="saveEditedRecordBtn"><i class="fas fa-save"></i> Guardar Cambios</button>
+                <button class="btn btn-secondary" id="closeEditRecordModalBtn"><i class="fas fa-times-circle"></i> Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="settingsModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2><i class="fas fa-cog"></i> Ajustes y Herramientas</h2>
+            <div class="settings-options">
+                <h3>Datos</h3>
+                <button class="btn btn-primary" id="backupDataBtn"><i class="fas fa-download"></i> Crear Copia de Seguridad</button>
+                <input type="file" id="restoreFileInput" accept=".json" style="display: none;">
+                <button class="btn btn-secondary" id="triggerRestoreBtn"><i class="fas fa-upload"></i> Restaurar Datos</button>
+
+                <h3>Tipos de Carga Personalizados</h3>
+                <div id="customCargoTypesContainer" class="custom-cargo-types">
+                    </div>
+                <div class="input-field">
+                    <input type="text" id="newCargoTypeName" placeholder=" ">
+                    <label for="newCargoTypeName">Nuevo Tipo de Carga</label>
+                </div>
+                <button class="btn btn-primary" id="addCustomCargoTypeBtn"><i class="fas fa-plus-circle"></i> Añadir Tipo de Carga</button>
+
+                <h3>Alertas y Notificaciones</h3>
+                <div class="input-field">
+                    <input type="number" id="badPlateThreshold" min="1" value="3" placeholder=" ">
+                    <label for="badPlateThreshold">Alertar Placas con N Reportes:</label>
+                </div>
+                <div class="input-field">
+                    <input type="number" id="pendingLoadThreshold" min="1" value="2" placeholder=" ">
+                    <label for="pendingLoadThreshold">Alertar Carga Pendiente por N Días:</label>
+                </div>
+                <button class="btn btn-primary" id="saveAlertSettingsBtn"><i class="fas fa-save"></i> Guardar Ajustes de Alertas</button>
+
+                <h3 id="manageUsersHeading" style="display: none;">Gestión de Usuarios</h3>
+                <div id="userManagementSection" class="user-management-section" style="display: none;">
+                    <ul id="userList"></ul>
+                    <div class="input-field">
+                        <input type="email" id="newUserEmailAdmin" placeholder=" ">
+                        <label for="newUserEmailAdmin">Correo Nuevo Usuario</label>
+                    </div>
+                    <div class="input-field">
+                        <input type="password" id="newUserPasswordAdmin" placeholder=" ">
+                        <label for="newUserPasswordAdmin">Contraseña Nuevo Usuario</label>
+                    </div>
+                    <button class="btn btn-primary" id="addUserAdminBtn"><i class="fas fa-user-plus"></i> Añadir Usuario</button>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" id="closeSettingsModalBtn"><i class="fas fa-times-circle"></i> Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="chartsModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2><i class="fas fa-chart-bar"></i> Movimientos de Unidades por Día</h2>
+            <div class="input-group" style="margin-bottom: 20px;">
+                <div class="input-field">
+                    <input type="date" id="chartStartDate" placeholder=" ">
+                    <label for="chartStartDate">Fecha Inicio</label>
+                </div>
+                <div class="input-field">
+                    <input type="date" id="chartEndDate" placeholder=" ">
+                    <label for="chartEndDate">Fecha Fin</label>
+                </div>
+                <button class="btn btn-primary" id="applyChartFilterBtn"><i class="fas fa-filter"></i> Aplicar Filtro</button>
+                <button class="btn btn-secondary" id="resetChartFilterBtn"><i class="fas fa-undo"></i> Resetear</button>
+            </div>
+            <canvas id="unitMovementChart" style="max-height: 400px;"></canvas>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" id="closeChartsModalBtn"><i class="fas fa-times-circle"></i> Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="plateHistoryModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2><i class="fas fa-history"></i> Historial de Placa: <span id="historyPlateNumber"></span></h2>
+            <div class="records-list" id="plateHistoryList" style="max-height: 50vh; overflow-y: auto;">
+                </div>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" id="closePlateHistoryModalBtn"><i class="fas fa-times-circle"></i> Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="notificationsModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2><i class="fas fa-bell"></i> Notificaciones</h2>
+            <div id="notificationsList" class="records-list" style="max-height: 60vh; overflow-y: auto;">
+                <p class="no-records">No hay notificaciones.</p>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" id="closeNotificationsModalBtn"><i class="fas fa-times-circle"></i> Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+
+    <script src="firebase-config.js"></script>
+    <script src="script.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>
